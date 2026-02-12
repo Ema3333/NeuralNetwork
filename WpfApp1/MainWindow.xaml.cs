@@ -20,7 +20,7 @@ namespace WpfApp1
     public partial class MainWindow : Window
     {
         // define the width and height to which the canvas will be shrinken down
-        
+
         const int width = 28;
         const int height = 28;
 
@@ -28,8 +28,8 @@ namespace WpfApp1
         float[][] layers = new float[numLayers][]; // store the fire value of each layer
         int[] numNeurons = new int[numLayers] { (width * height), 16, 16, 10 };
 
-        float[][][] weight = new float[width * height][][];
-        float[][] bias = new float[width * height][];
+        float[][][] weight = new float[numLayers][][];
+        float[][] bias = new float[numLayers][];
 
         float[] ExpVal = new float[10] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 };
 
@@ -43,9 +43,9 @@ namespace WpfApp1
 
             for (int i = 0; i < numLayers - 1; i++)
             {
-                weight[i] = new float[numNeurons[i]][];
-                bias[i] = new float[numNeurons[i]];
-                
+                weight[i] = new float[numNeurons[i + 1]][];
+                bias[i] = new float[numNeurons[i + 1]];
+
                 for (int j = 0; j < numNeurons[i + 1]; j++)
                 {
                     bias[i][j] = (rnd.Next(1, 100) - 50f) / 100f;
@@ -61,7 +61,7 @@ namespace WpfApp1
         private float[][] canvasToMatrix()
         {
             // render as bitmap the canvas than covert the bitmap render to a matrix of 0 and 1 where 0 is white (neuron off) and 1 is black (neuron on)
-            
+
             double dpi = (28d * 96d) / Canvas.ActualWidth;
 
             int x = 0;
@@ -139,6 +139,8 @@ namespace WpfApp1
             {
                 System.Diagnostics.Debug.WriteLine(layers[numLayers - 1][i]);
             }
+
+            gradient();
         }
 
         void training()
@@ -151,35 +153,54 @@ namespace WpfApp1
                 {
                     for (int k = 0; k < numNeurons[i - 1]; k++)
                     {
-                        if (i == numLayers)
-                        {
-                            
-                        }
+
                     }
                 }
             }
         }
 
-        float gradient(float[][] Value)
+        float[][][] gradient()
         {
-            for (int i = 0; i < numLayers - 1; i++)
-            {
-                weight[i] = new float[numNeurons[i]][];
-                bias[i] = new float[numNeurons[i]];
+            float[][][] gradient = new float[numLayers][][];
+            float[][] delta = new float[numLayers][];
 
+            for (int i = 0; i < numLayers; i++)
+            {
+                delta[i] = new float[numNeurons[i]];
+            }
+
+            for (int i = numLayers - 2; i > 0; i--)
+            {
                 for (int j = 0; j < numNeurons[i + 1]; j++)
                 {
-                    
-
-                    weight[i][j] = new float[numNeurons[i]];
-                    for (int k = 0; k < numNeurons[i]; k++)
+                    if (i == numLayers - 2)
                     {
-                        Value[i + 1] = 0;
+                        delta[i][j] = layers[i + 1][j] - ExpVal[j];
+                    }
+                    else
+                    {
+                        for (int k = 0; k < numNeurons[i]; k++)
+                        {
+                            delta[i][j] += delta[i + 1][k] * weight[i][j][k];
+                        }
                     }
                 }
             }
 
-            return 0;
+            for (int i = numLayers - 2; i >= 0; i--)
+            {
+                gradient[i] = new float[numNeurons[i + 1]][];
+                for (int j = 0; j < numNeurons[i + 1]; j++)
+                {
+                    gradient[i][j] = new float[numNeurons[i]];
+                    for (int k = 0; k < numNeurons[i]; k++)
+                    {
+                        gradient[i][j][k] = delta[i + 1][j] * layers[i][k] * (layers[i][j] * (1 - layers[i][j]));
+                    }
+                }
+            }
+
+            return gradient;
         }
 
         float cost(float[][] Value, float[] ExpRes)
@@ -198,14 +219,14 @@ namespace WpfApp1
         private void IdentifyButton(object sender, RoutedEventArgs e)
         {
             // call canvasToMatrix to get the matrix of the canvas and then call the neural network function to get the output
-            
+
             float[][] intMat = canvasToMatrix();
             float[] NumArr = new float[width * height];
 
             int count = 0;
 
             //Debug
-            
+
             for (int i = 0; i < height; i++)
             {
                 string riga = "";
@@ -227,7 +248,7 @@ namespace WpfApp1
                 }
             }
 
-            training();
+            //training();
             NeuralNetwork(NumArr);
         }
 
