@@ -139,81 +139,59 @@ namespace WpfApp1
             {
                 System.Diagnostics.Debug.WriteLine(layers[numLayers - 1][i]);
             }
+            System.Diagnostics.Debug.WriteLine("");
 
-            gradient();
+            gradient(ExpVal);
         }
-
-        void training()
+        (float[][][], float[][]) gradient(float[] expVal)
         {
-            float costVal = cost(layers, ExpVal);
-
-            for (int i = numLayers; i < 0; i++)
-            {
-                for (int j = 0; j < numNeurons[i]; j++)
-                {
-                    for (int k = 0; k < numNeurons[i - 1]; k++)
-                    {
-
-                    }
-                }
-            }
-        }
-
-        float[][][] gradient()
-        {
-            float[][][] gradient = new float[numLayers][][];
+            float[][] biasGradient = new float[numLayers][];
+            float[][][] weightGradient = new float[numLayers][][];
             float[][] delta = new float[numLayers][];
+            float sum = 0;
 
-            for (int i = 0; i < numLayers; i++)
+            for (int i = 0; i <= numLayers - 1; i++)
             {
+                biasGradient[i] = new float[numNeurons[i]];
                 delta[i] = new float[numNeurons[i]];
             }
 
-            for (int i = numLayers - 2; i > 0; i--)
+            for (int i = 0; i < numNeurons[numNeurons.Length - 1]; i++)
             {
-                for (int j = 0; j < numNeurons[i + 1]; j++)
-                {
-                    if (i == numLayers - 2)
-                    {
-                        delta[i][j] = layers[i + 1][j] - ExpVal[j];
-                    }
-                    else
-                    {
-                        for (int k = 0; k < numNeurons[i]; k++)
-                        {
-                            delta[i][j] += delta[i + 1][k] * weight[i][j][k];
-                        }
-                    }
-                }
+                delta[numLayers - 1][i] = (layers[numLayers - 1][i] - expVal[i]) * layers[numLayers - 1][i] * (1 - layers[numLayers - 1][i]);
+                System.Diagnostics.Debug.WriteLine(delta[numLayers - 1][i]);
             }
 
-            for (int i = numLayers - 2; i >= 0; i--)
+            for (int i = numLayers - 1; i > 0; i--)
             {
-                gradient[i] = new float[numNeurons[i + 1]][];
-                for (int j = 0; j < numNeurons[i + 1]; j++)
+                for (int j = 0; j < numNeurons[i - 1]; j++)
                 {
-                    gradient[i][j] = new float[numNeurons[i]];
                     for (int k = 0; k < numNeurons[i]; k++)
                     {
-                        gradient[i][j][k] = delta[i + 1][j] * layers[i][k] * (layers[i][j] * (1 - layers[i][j]));
+                        sum += delta[i][k] * weight[i - 1][k][j];
+                    }
+
+                    delta[i - 1][j] = sum * layers[i - 1][j] * (1 - layers[i - 1][j]);
+                    sum = 0;
+                }
+            }
+
+            for (int i = 0; i < numLayers - 1; i++)
+            {
+                weightGradient[i] = new float[numNeurons[i + 1]][];
+                for (int j = 0; j < numNeurons[i + 1]; j++)
+                {
+                    weightGradient[i][j] = new float[numNeurons[i]];
+
+                    biasGradient[i][j] = delta[i + 1][j];
+                    for (int k = 0; k < numNeurons[i]; k++)
+                    {
+                        weightGradient[i][j][k] = delta[i + 1][j] * layers[i][k];
                     }
                 }
             }
 
-            return gradient;
-        }
-
-        float cost(float[][] Value, float[] ExpRes)
-        {
-            // cost function of the neural network
-
-            float cost = 0;
-
-            for (int i = 0; i < numNeurons[numLayers - 1]; i++)
-            {
-                cost += (float)Math.Pow(Value[numLayers - 1][i] - ExpRes[i], 2);
-            }
-            return cost;
+            return (weightGradient, biasGradient);
         }
 
         private void IdentifyButton(object sender, RoutedEventArgs e)
@@ -248,7 +226,6 @@ namespace WpfApp1
                 }
             }
 
-            //training();
             NeuralNetwork(NumArr);
         }
 
