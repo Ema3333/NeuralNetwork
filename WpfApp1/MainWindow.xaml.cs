@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -9,6 +10,7 @@ using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Ink;
 using System.Windows.Input;
+using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Media.Media3D;
@@ -140,9 +142,8 @@ namespace WpfApp1
                 System.Diagnostics.Debug.WriteLine(layers[numLayers - 1][i]);
             }
             System.Diagnostics.Debug.WriteLine("");
-
-            gradient(ExpVal);
         }
+
         (float[][][], float[][]) gradient(float[] expVal)
         {
             float[][] biasGradient = new float[numLayers][];
@@ -194,6 +195,33 @@ namespace WpfApp1
             return (weightGradient, biasGradient);
         }
 
+        void training(float[][][] weightGradient, float[][] biasGradient)
+        {
+            // archive/train-images.idx3-ubyte
+            // archive/train-lables.idx3-ubyte
+
+            string path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "archive", "train-images.idx3-ubyte");
+
+            byte[] file = File.ReadAllBytes(path);
+            byte[] temp = new byte[4];
+
+            for (int i = 0; i < 4; i++)
+            {
+                temp = new byte[4];
+                for (int j = 0; j < 4; j++)
+                {
+                    temp[j] = file[j + (4 * i)];
+                }
+
+                Array.Reverse(temp);
+
+                for (int j = 0; j < 4; j++)
+                {
+                    file[j + (4 * i)] = temp[j];
+                }
+            }
+        }
+
         private void IdentifyButton(object sender, RoutedEventArgs e)
         {
             // call canvasToMatrix to get the matrix of the canvas and then call the neural network function to get the output
@@ -227,6 +255,8 @@ namespace WpfApp1
             }
 
             NeuralNetwork(NumArr);
+            var (weightGradient, biasGradient) = gradient(ExpVal);
+            training(weightGradient, biasGradient);
         }
 
         private void ClearButton(object sender, RoutedEventArgs e)
