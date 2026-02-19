@@ -26,14 +26,16 @@ namespace WpfApp1
         const int width = 28;
         const int height = 28;
 
-        const int numLayers = 4;
+        const int epoch = 50;
+
+        const float learningRate = 0.01f;
+
+        const int numLayers = 8;
         float[][] layers = new float[numLayers][]; // store the fire value of each layer
-        int[] numNeurons = new int[numLayers] { (width * height), 16, 16, 10 };
+        int[] numNeurons = new int[numLayers] { (width * height), 600, 500, 400, 300, 200, 100, 10 };
 
         float[][][] weight = new float[numLayers][][];
         float[][] bias = new float[numLayers][];
-
-        float[] ExpVal = new float[10] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 };
 
         Random rnd = new Random();
 
@@ -84,7 +86,7 @@ namespace WpfApp1
 
             for (int i = 0; i < height; i++)
             {
-                pixelMat[i] = new byte[width]; // x
+                pixelMat[i] = new byte[width];
 
                 for (int j = 0; j < width; j++)
                 {
@@ -112,7 +114,7 @@ namespace WpfApp1
             return intMat;
         }
 
-        void NeuralNetwork(float[] ValArr)
+        void NeuralNetwork(float[] ValArr, bool print)
         {
             // core structure of the neural network
 
@@ -123,6 +125,7 @@ namespace WpfApp1
                 layers[0][i] = ValArr[i];
             }
 
+            // compute first value of each neuron
             for (int i = 0; i < numLayers - 1; i++)
             {
                 layers[i + 1] = new float[numNeurons[i + 1]];
@@ -133,36 +136,64 @@ namespace WpfApp1
                         layers[i + 1][j] += layers[i][k] * weight[i][j][k];
                     }
                     layers[i + 1][j] += bias[i][j];
-                    layers[i + 1][j] = 1f / (1f + (float)Math.Pow(Math.Exp(1), -(layers[i + 1][j])));
+                    layers[i + 1][j] = 1f / (1f + (float)Math.Pow(Math.Exp(1), -(layers[i + 1][j]))); // sigmoide
                 }
             }
 
-            for (int i = 0; i < numNeurons[numLayers - 1]; i++)
+            if (print)
             {
-                System.Diagnostics.Debug.WriteLine(layers[numLayers - 1][i]);
+                float num = -1;
+                float tempOld = -1;
+                float temp = 0;
+
+                for (int i = 0; i < numNeurons[numLayers - 1]; i++)
+                {
+                    temp = layers[numLayers - 1][i];
+
+                    if (temp > tempOld)
+                    {
+                        num = i;
+                        tempOld = temp;
+                    }
+
+                    System.Diagnostics.Debug.WriteLine(layers[numLayers - 1][i]);
+                }
+
+                if (num == -1)
+                {
+                    System.Diagnostics.Debug.WriteLine("error");
+                    NumGuess.Content = "error";
+                }
+
+                System.Diagnostics.Debug.WriteLine(num);
+                NumGuess.Content = num;
             }
-            System.Diagnostics.Debug.WriteLine("");
         }
 
         (float[][][], float[][]) gradient(float[] expVal)
         {
+            // compute the gradient
+
             float[][] biasGradient = new float[numLayers][];
             float[][][] weightGradient = new float[numLayers][][];
             float[][] delta = new float[numLayers][];
             float sum = 0;
 
+            // inizialization
             for (int i = 0; i <= numLayers - 1; i++)
             {
                 biasGradient[i] = new float[numNeurons[i]];
                 delta[i] = new float[numNeurons[i]];
             }
 
+            // compute delta last layer
             for (int i = 0; i < numNeurons[numNeurons.Length - 1]; i++)
             {
                 delta[numLayers - 1][i] = (layers[numLayers - 1][i] - expVal[i]) * layers[numLayers - 1][i] * (1 - layers[numLayers - 1][i]);
-                System.Diagnostics.Debug.WriteLine(delta[numLayers - 1][i]);
+                //System.Diagnostics.Debug.WriteLine(delta[numLayers - 1][i]);
             }
 
+            // compute delta hidden layer (backpropagation)
             for (int i = numLayers - 1; i > 0; i--)
             {
                 for (int j = 0; j < numNeurons[i - 1]; j++)
@@ -177,6 +208,7 @@ namespace WpfApp1
                 }
             }
 
+            //compute gradient
             for (int i = 0; i < numLayers - 1; i++)
             {
                 weightGradient[i] = new float[numNeurons[i + 1]][];
@@ -195,31 +227,135 @@ namespace WpfApp1
             return (weightGradient, biasGradient);
         }
 
-        void training(float[][][] weightGradient, float[][] biasGradient)
+        void training()
         {
-            // archive/train-images.idx3-ubyte
-            // archive/train-lables.idx3-ubyte
+            float[] ExpVal = new float[10] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+            float loss = 0f;
 
-            string path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "archive", "train-images.idx3-ubyte");
+            string pathImg = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "archive", "train-images.idx3-ubyte");
+            string pathLab = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "archive", "train-labels.idx1-ubyte");
 
-            byte[] file = File.ReadAllBytes(path);
-            byte[] temp = new byte[4];
+            byte[] fileImg = File.ReadAllBytes(pathImg);
+            byte[] fileLab = File.ReadAllBytes(pathLab);
+            byte[] tempImg = new byte[4];   
+            byte[] tempLab = new byte[4];
 
             for (int i = 0; i < 4; i++)
             {
-                temp = new byte[4];
+                tempImg = new byte[4];
+                tempLab = new byte[4];
+
                 for (int j = 0; j < 4; j++)
                 {
-                    temp[j] = file[j + (4 * i)];
+                    tempImg[j] = fileImg[j + (4 * i)];
+                    tempLab[j] = fileLab[j + (4 * i)];
                 }
 
-                Array.Reverse(temp);
+                Array.Reverse(tempImg);
+                Array.Reverse(tempLab);
 
                 for (int j = 0; j < 4; j++)
                 {
-                    file[j + (4 * i)] = temp[j];
+                    fileImg[j + (4 * i)] = tempImg[j];
+                    fileLab[j + (4 * i)] = tempLab[j];
                 }
             }
+
+            int nImg = BitConverter.ToInt32(fileImg, 4);
+            int row = BitConverter.ToInt32(fileImg, 8);
+            int columns = BitConverter.ToInt32(fileImg, 12);
+            int size = row * columns;
+
+            for (int q = 0; q < epoch; q++)
+            {
+                for (int f = 0; f < nImg; f++)
+                {
+                    loss = 0f;
+                    ExpVal = new float[10] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+                    float[] trainingVal = new float[size];
+
+                    for (int r = 0; r < size; r++)
+                    {
+                        trainingVal[r] = fileImg[((f * size) + 16) + r] / 255f;
+                    }
+
+                    NeuralNetwork(trainingVal, false);
+
+                    int index = fileLab[f + 8];
+                    ExpVal[index] = 1;
+
+                    for (int p = 0; p < 10; p++)
+                    {
+                        loss += (float)Math.Pow(ExpVal[p] - layers[numLayers - 1][p], 2);
+                    }
+
+                    if (f % 100 == 0)
+                    {
+                        System.Diagnostics.Debug.WriteLine("perdita: " + loss);
+                    }
+
+                    (var wG, var bG) = gradient(ExpVal);
+
+                    for (int i = 0; i < numLayers - 1; i++)
+                    {
+                        for (int j = 0; j < numNeurons[i + 1]; j++)
+                        {
+                            bias[i][j] = bias[i][j] - (bG[i][j] * learningRate);
+
+                            for (int k = 0; k < numNeurons[i]; k++)
+                            {
+                                weight[i][j][k] = weight[i][j][k] - (wG[i][j][k] * learningRate);
+                            }
+                        }
+                    }
+                }
+
+                save();
+            }
+        }
+
+        void save()
+        {
+            string pathData = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "archive", "trainData.dat");
+
+            using (BinaryWriter write = new BinaryWriter(File.Open(pathData, FileMode.Create)))
+            {
+                for (int i = 0; i < numLayers - 1; i++)
+                {
+                    for (int j = 0; j < numNeurons[i + 1]; j++)
+                    {
+                        write.Write(bias[i][j]);
+
+                        for (int k = 0; k < numNeurons[i]; k++)
+                        {
+                            write.Write(weight[i][j][k]);
+                        }
+                    }
+                }
+            }
+        }
+
+        void load()
+        {
+            string pathData = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "archive", "trainData.dat");
+
+            using (BinaryReader read = new BinaryReader(File.Open(pathData, FileMode.Open)))
+            {
+                for (int i = 0; i < numLayers - 1; i++)
+                {
+                    for (int j = 0; j < numNeurons[i + 1]; j++)
+                    {
+                        bias[i][j] = read.ReadSingle();
+
+                        for (int k = 0; k < numNeurons[i]; k++)
+                        {
+                            weight[i][j][k] = read.ReadSingle();
+                        }
+                    }
+                }
+            }
+
+            System.Diagnostics.Debug.WriteLine("File loaded successfully");
         }
 
         private void IdentifyButton(object sender, RoutedEventArgs e)
@@ -243,8 +379,6 @@ namespace WpfApp1
                 System.Diagnostics.Debug.WriteLine(riga);
             }
 
-            //End Debug
-
             for (int i = 0; i < height; i++)
             {
                 for (int j = 0; j < width; j++)
@@ -254,14 +388,22 @@ namespace WpfApp1
                 }
             }
 
-            NeuralNetwork(NumArr);
-            var (weightGradient, biasGradient) = gradient(ExpVal);
-            training(weightGradient, biasGradient);
+            NeuralNetwork(NumArr, true);
         }
 
         private void ClearButton(object sender, RoutedEventArgs e)
         {
             this.Canvas.Strokes.Clear();
+        }
+
+        private void TrainButton(object sender, RoutedEventArgs e)
+        {
+            training();
+        }
+
+        private void LoadData(object sender, RoutedEventArgs e)
+        {
+            load();
         }
     }
 }
