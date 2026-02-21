@@ -12,9 +12,6 @@
             <InkCanvas  x:Name="Canvas" 
                         Background="White" 
                         Width="300" Height="300" Margin="0,0,0,-1">
-                <InkCanvas.Effect>
-                    <BlurEffect Radius="5" KernelType="Gaussian" />
-                </InkCanvas.Effect>
                 <InkCanvas.DefaultDrawingAttributes>
                     <DrawingAttributes Color="Black" Width="40" Height="40" />
                 </InkCanvas.DefaultDrawingAttributes>
@@ -23,6 +20,7 @@
 
         <Label x:Name="NumGuess" Content="" HorizontalAlignment="Center"/>
         <Label x:Name="Alert" Content="" HorizontalAlignment="Center"/>
+        <Label x:Name="AccuracyAlert" Content="" HorizontalAlignment="Center"/>
 
         <Button x:Name="Clear" Margin="5" Click="ClearButton" Height="20" Width="100" Content="Clear"/>
         <Button x:Name="Identify" Margin="5" Click="IdentifyButton" Height="20" Width="100" Content="Identify"/>

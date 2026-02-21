@@ -28,16 +28,17 @@ namespace WpfApp1
 
         const int epoch = 50;
 
-        const float learningRate = 0.05f;
+        const float learningRate = 0.01f;
 
-        const int numLayers = 4;
+        const int numLayers = 5;
         float[][] layers = new float[numLayers][]; // store the fire value of each layer
-        int[] numNeurons = new int[numLayers] { (width * height), 128, 64, 10 };
+        int[] numNeurons = new int[numLayers] { (width * height), 512, 256, 128, 47 };
 
         float[][][] weight = new float[numLayers][][];
         float[][] bias = new float[numLayers][];
 
         bool stop = false;
+        bool stopAccuracy = false;
 
         Random rnd = new Random();
 
@@ -64,7 +65,7 @@ namespace WpfApp1
                 }
             }
 
-            load();
+            loadAsync();
         }
         private float[][] canvasToMatrix()
         {
@@ -72,14 +73,14 @@ namespace WpfApp1
 
             double dpi = (28d * 96d) / Canvas.ActualWidth;
 
-            int x = 0;
-            int y = 0;
-
-            int count = 0;
-
             byte[] pixel = new byte[width * height * 4];
             byte[][] pixelMat = new byte[width][];
             float[][] intMat = new float[width][];
+            bool temp = true;
+            int firstI = 0;
+            int firstJ = 0;
+            int lastI = 0;
+            int lastJ = 0;
 
             RenderTargetBitmap rtb = new RenderTargetBitmap(width, height, dpi, dpi, PixelFormats.Default);
 
@@ -104,7 +105,42 @@ namespace WpfApp1
                 intMat[i] = new float[width];
                 for (int j = 0; j < width; j++)
                 {
-                    intMat[i][j] = (255.0f - (float)pixelMat[i][j]) / 255.0f;
+                    if (pixelMat[i][j] == 0)
+                    {
+                        intMat[i][j] = 1;
+                    }
+                    else
+                    {
+                        intMat[i][j] = 0;
+                    }
+                }
+            }
+
+            // center the number
+            for (int i = 0; i < height; i++)
+            {
+                for (int j = 0; j < width; j++)
+                {
+                    if (intMat[i][j] == 1 && temp)
+                    {
+                        firstI = i;
+                        firstJ = j;
+                        temp = false;
+                    }
+
+                    if (intMat[i][j] == 1)
+                    {
+                        lastI = i;
+                        lastJ = j;
+                    }
+                }
+            }
+
+            for (int i = 0; i < height; i++)
+            {
+                for (int j = 0; j < width; j++)
+                {
+                    
                 }
             }
 
@@ -140,6 +176,7 @@ namespace WpfApp1
             float num = -1;
             float tempOld = -1;
             float temp = 0;
+            char outputChar;
 
             for (int i = 0; i < numNeurons[numLayers - 1]; i++)
             {
@@ -158,9 +195,16 @@ namespace WpfApp1
             }
 
             if (print)
-            { 
-                System.Diagnostics.Debug.WriteLine(num);
-                NumGuess.Content = num.ToString();
+            {
+                if (num <= 9 && num >= 0)
+                {
+                    System.Diagnostics.Debug.WriteLine(num);
+                    NumGuess.Content = num.ToString();
+                }
+                else
+                {
+                    outputChar = (char)(num + 55);
+                }
             }
 
 
@@ -226,70 +270,74 @@ namespace WpfApp1
 
         void training()
         {
-            float[] ExpVal = new float[10] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-            float loss = 0f;
+            float[] ExpVal = new float[47];
 
-            string pathImg = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "archive", "train-images.idx3-ubyte");
-            string pathLab = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "archive", "train-labels.idx1-ubyte");
-
-            byte[] fileImg = File.ReadAllBytes(pathImg);
-            byte[] fileLab = File.ReadAllBytes(pathLab);
-            byte[] tempImg = new byte[4];   
-            byte[] tempLab = new byte[4];
-
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < ExpVal.Length; i++)
             {
-                tempImg = new byte[4];
-                tempLab = new byte[4];
-
-                for (int j = 0; j < 4; j++)
-                {
-                    tempImg[j] = fileImg[j + (4 * i)];
-                    tempLab[j] = fileLab[j + (4 * i)];
-                }
-
-                Array.Reverse(tempImg);
-                Array.Reverse(tempLab);
-
-                for (int j = 0; j < 4; j++)
-                {
-                    fileImg[j + (4 * i)] = tempImg[j];
-                    fileLab[j + (4 * i)] = tempLab[j];
-                }
+                ExpVal[i] = 0;
             }
 
-            int nImg = BitConverter.ToInt32(fileImg, 4);
-            int row = BitConverter.ToInt32(fileImg, 8);
-            int columns = BitConverter.ToInt32(fileImg, 12);
+            float loss = 0f;
+
+            string pathNumImg = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "archive", "emnist-digits-train-images-idx3-ubyte");
+            string pathNumLab = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "archive", "emnist-digits-train-labels-idx1-ubyte");
+            string pathCharImg = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "archive", "emnist-letters-train-images-idx3-ubyte");
+            string pathCharLab = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "archive", "emnist-letters-train-labels-idx1-ubyte");
+
+            byte[] fileNumImg = LittleEndianConv(File.ReadAllBytes(pathNumImg), 4);
+            byte[] fileNumLab = LittleEndianConv(File.ReadAllBytes(pathNumLab), 2);
+            byte[] fileCharImg = LittleEndianConv(File.ReadAllBytes(pathCharImg), 4);
+            byte[] fileCharLab = LittleEndianConv(File.ReadAllBytes(pathCharLab), 2);
+
+            byte[] cleanNumImg = removeMetadata(fileNumImg, 16);
+            byte[] cleanNumLab = removeMetadata(fileNumLab, 8);
+            byte[] cleanCharImg = removeMetadata(fileCharImg, 16);
+            byte[] cleanCharLab = removeMetadata(fileCharLab, 8);
+
+            for (int i = 0; i < cleanCharLab.Length; i++)
+            {
+                cleanCharLab[i] += 9;
+            }
+
+            byte[] fileImg = mergeFileContent(cleanNumImg, cleanCharImg);
+            byte[] fileLab = mergeFileContent(cleanNumLab, cleanCharLab);
+
+            int nImg = BitConverter.ToInt32(fileNumImg, 4) + BitConverter.ToInt32(fileCharImg, 4);
+            int row = BitConverter.ToInt32(fileNumImg, 8);
+            int columns = BitConverter.ToInt32(fileNumImg, 12);
             int size = row * columns;
-            int Accuracy = 0;
+            float Accuracy = 0;
+            float[] trainingVal = new float[size];
 
             for (int q = 0; q < epoch; q++)
             {
-                Accuracy = accuracy();
+                // Accuracy = accuracy();
 
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    Alert.Content = "Accuracy: " + Accuracy + "%";
-                });
+                // Application.Current.Dispatcher.Invoke(() =>
+                // {
+                //     Alert.Content = "Accuracy: " + Accuracy + "%";
+                // });
 
                 for (int f = 0; f < nImg; f++)
                 {
                     loss = 0f;
-                    ExpVal = new float[10] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-                    float[] trainingVal = new float[size];
+
+                    for (int i = 0; i < ExpVal.Length; i++)
+                    {
+                        ExpVal[i] = 0;
+                    }
 
                     for (int r = 0; r < size; r++)
                     {
-                        trainingVal[r] = fileImg[((f * size) + 16) + r] / 255f;
+                        trainingVal[r] = fileImg[((f * size)) + ((r % 28) * 28 + (r / 28))] / 255f; // rotate the image becouse the EMNIST have 90 deg rotated and mirrored image
                     }
 
                     NeuralNetwork(trainingVal, false);
 
-                    int index = fileLab[f + 8];
+                    int index = fileLab[f];
                     ExpVal[index] = 1;
 
-                    for (int p = 0; p < 10; p++)
+                    for (int p = 0; p < ExpVal.Length; p++)
                     {
                         loss += (float)Math.Pow(ExpVal[p] - layers[numLayers - 1][p], 2);
                     }
@@ -317,61 +365,71 @@ namespace WpfApp1
             }
         }
 
-        int accuracy()
+        float accuracy()
         {
-            string pathImg = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "archive", "t10k-images.idx3-ubyte");
-            string pathLab = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "archive", "t10k-labels.idx1-ubyte");
+            stopAccuracy = false;
 
-            byte[] fileImg = File.ReadAllBytes(pathImg);
-            byte[] fileLab = File.ReadAllBytes(pathLab);
-            byte[] tempImg = new byte[4];
-            byte[] tempLab = new byte[4];
-
-            int right = 0;
-            int wrong = 0;
-            int Accuracy = 0;
-
-            for (int i = 0; i < 4; i++)
+            Application.Current.Dispatcher.Invoke(() =>
             {
-                tempImg = new byte[4];
-                tempLab = new byte[4];
+                AccuracyAlert.Content = "Computing accuracy...";
+            });
 
-                for (int j = 0; j < 4; j++)
-                {
-                    tempImg[j] = fileImg[j + (4 * i)];
-                    tempLab[j] = fileLab[j + (4 * i)];
-                }
+            string pathNumImg = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "archive", "emnist-digits-test-images-idx3-ubyte");
+            string pathNumLab = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "archive", "emnist-digits-test-labels-idx1-ubyte");
+            string pathCharImg = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "archive", "emnist-letters-test-images-idx3-ubyte");
+            string pathCharLab = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "archive", "emnist-letters-test-labels-idx1-ubyte");
 
-                Array.Reverse(tempImg);
-                Array.Reverse(tempLab);
+            byte[] fileNumImg = LittleEndianConv(File.ReadAllBytes(pathNumImg), 4);
+            byte[] fileNumLab = LittleEndianConv(File.ReadAllBytes(pathNumLab), 2);
+            byte[] fileCharImg = LittleEndianConv(File.ReadAllBytes(pathCharImg), 4);
+            byte[] fileCharLab = LittleEndianConv(File.ReadAllBytes(pathCharLab), 2);
 
-                for (int j = 0; j < 4; j++)
-                {
-                    fileImg[j + (4 * i)] = tempImg[j];
-                    fileLab[j + (4 * i)] = tempLab[j];
-                }
+            byte[] cleanNumImg = removeMetadata(fileNumImg, 16);
+            byte[] cleanNumLab = removeMetadata(fileNumLab, 8);
+            byte[] cleanCharImg = removeMetadata(fileCharImg, 16);
+            byte[] cleanCharLab = removeMetadata(fileCharLab, 8);
+
+            for (int i = 0; i < cleanCharLab.Length; i++)
+            {
+                cleanCharLab[i] += 9;
             }
 
-            int nImg = BitConverter.ToInt32(fileImg, 4);
-            int row = BitConverter.ToInt32(fileImg, 8);
-            int columns = BitConverter.ToInt32(fileImg, 12);
+            byte[] fileImg = mergeFileContent(cleanNumImg, cleanCharImg);
+            byte[] fileLab = mergeFileContent(cleanNumLab, cleanCharLab);
+
+            float right = 0;
+            float wrong = 0;
+            float Accuracy = 0;
+
+            int nImg = BitConverter.ToInt32(fileNumImg, 4) + BitConverter.ToInt32(fileCharImg, 4);
+            int row = BitConverter.ToInt32(fileNumImg, 8);
+            int columns = BitConverter.ToInt32(fileNumImg, 12);
             int size = row * columns;
             float[] trainingVal = new float[size];
-            float[]  ExpVal = new float[10] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+            float[] ExpVal = new float[47];
+
+            for (int i = 0; i < ExpVal.Length; i++)
+            {
+                ExpVal[i] = 0;
+            }
+
             float ExpValNum = -1;
 
             for (int i = 0; i < nImg; i++)
             {
-                ExpVal = new float[10] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+                for (int j = 0; j < ExpVal.Length; j++)
+                {
+                    ExpVal[j] = 0;
+                }
 
                 for (int j = 0; j < size; j++)
                 {
-                    trainingVal[j] = fileImg[((i * size) + 16) + j] / 255f;
+                    trainingVal[j] = fileImg[((i * size)) + ((j % 28) * 28 + (j / 28))] / 255f; // rotate the image becouse the EMNIST have 90 deg rotated and mirrored image
                 }
 
                 ExpValNum = NeuralNetwork(trainingVal, false);
 
-                int index = fileLab[i + 8];
+                int index = fileLab[i];
                 ExpVal[index] = 1;
 
                 if (ExpVal[(int)ExpValNum] == 0)
@@ -385,9 +443,110 @@ namespace WpfApp1
 
                 Accuracy = right * 100 / (right + wrong);
 
+                if (i % 1000 == 0)
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        AccuracyAlert.Content = "Accuracy: " + Accuracy + "%";
+                    });
+                }
+
+                if (stopAccuracy)
+                {
+                    return Accuracy;
+                }
             }
 
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                AccuracyAlert.Content = "Loaded latest data, accuracy: " + Accuracy + "%";
+            });
+
             return Accuracy;
+        }
+
+        byte[] LittleEndianConv(byte[] file, int numByte)
+        {
+            byte[] tempImg = new byte[4];
+            byte[] tempLab = new byte[4];
+
+            for (int i = 0; i < numByte; i++)
+            {
+                tempImg = new byte[4];
+                tempLab = new byte[4];
+
+                for (int j = 0; j < 4; j++)
+                {
+                    tempImg[j] = file[j + (4 * i)];
+                }
+
+                Array.Reverse(tempImg);
+                Array.Reverse(tempLab);
+
+                for (int j = 0; j < 4; j++)
+                {
+                    file[j + (4 * i)] = tempImg[j];
+                }
+            }
+
+            return file;
+        }
+
+        byte[] removeMetadata(byte[] file, int metadataSize)
+        {
+            byte[] temp = new byte[file.Length - metadataSize];
+            for (int i = 0; i < file.Length - metadataSize; i++)
+            {
+                temp[i] = file[i + metadataSize];
+            }
+
+            return temp;
+        }
+
+        byte[] mergeFileContent(byte[] file1, byte[] file2)
+        {
+            byte[] temp = new byte[file1.Length + file2.Length];
+            
+            for(int i = 0; i < file1.Length; i++)
+            {
+                temp[i] = file1[i];
+            }
+
+            for (int i = 0; i < file2.Length; i++)
+            {
+                temp[i + file1.Length] = file2[i];
+            }
+
+            return temp;
+        }
+
+        byte[] shuffle(byte[] file, int nImg, int size)
+        {
+            byte[] shuffledFile = new byte[file.Length];
+            byte[] temp = new byte[size];
+            int[] rndPos = Enumerable.Range(0, nImg).OrderBy(x => rnd.Next()).ToArray();
+
+            for (int i = 0; i < nImg; i++)
+            {
+                for(int k = 0; k < size; k++)
+                {
+                    if (i == 0)
+                    {
+                        temp[k] = file[k];
+                    }
+                    else
+                    {
+                        temp[k] = file[k + i * size];
+                    }
+                }
+
+                for (int k = 0; k < size; k++)
+                {
+                    shuffledFile[rndPos[i]] = temp[k];
+                }
+            }
+
+            return shuffledFile;
         }
 
         void save()
@@ -413,31 +572,60 @@ namespace WpfApp1
             System.Diagnostics.Debug.WriteLine("File saved successfully");
         }
 
-        void load()
+        async void loadAsync()
         {
-            Alert.Content = "Loading latest data...";
+            await Task.Run(() => load());
+        }
 
+        async void load()
+        {
             string pathData = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "archive", "trainData.dat");
 
-            using (BinaryReader read = new BinaryReader(File.Open(pathData, FileMode.Open)))
+            try
             {
-                for (int i = 0; i < numLayers - 1; i++)
+                Application.Current.Dispatcher.Invoke(() =>
                 {
-                    for (int j = 0; j < numNeurons[i + 1]; j++)
-                    {
-                        bias[i][j] = read.ReadSingle();
+                    Alert.Content = "Loading latest data...";
+                });
 
-                        for (int k = 0; k < numNeurons[i]; k++)
+                using (BinaryReader read = new BinaryReader(File.Open(pathData, FileMode.Open)))
+                {
+                    for (int i = 0; i < numLayers - 1; i++)
+                    {
+                        for (int j = 0; j < numNeurons[i + 1]; j++)
                         {
-                            weight[i][j][k] = read.ReadSingle();
+                            bias[i][j] = read.ReadSingle();
+
+                            for (int k = 0; k < numNeurons[i]; k++)
+                            {
+                                weight[i][j][k] = read.ReadSingle();
+                            }
                         }
                     }
                 }
+
+                System.Diagnostics.Debug.WriteLine("File loaded successfully");
+
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    Alert.Content = "File loaded";
+                });
+
+                await Task.Delay(100);
+
+                stopAccuracy = true;
+                await Task.Delay(500);
+
+                float Accuracy = await Task.Run(() => accuracy());
             }
-
-            System.Diagnostics.Debug.WriteLine("File loaded successfully");
-
-            Alert.Content = "Loaded latest data";
+            catch
+            {
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    AccuracyAlert.Content = "Some parameter has been changed, training file reseted";
+                });
+                new BinaryWriter(File.Open(pathData, FileMode.Create));
+            }
         }
 
         private void IdentifyButton(object sender, RoutedEventArgs e)
@@ -483,6 +671,7 @@ namespace WpfApp1
             stop = false;
             Train.IsEnabled = false;
             Alert.Content = "Training started";
+            await Task.Delay(100);
             await Task.Run(() => training());
 
             Train.IsEnabled = true;
@@ -493,14 +682,18 @@ namespace WpfApp1
         {
             stop = true;
 
+            Alert.Content = "Saving files...";
+            await Task.Delay(100);
             Save.IsEnabled = false;
             await Task.Run(() => save());
+            Alert.Content = "Files saved";
 
-            Alert.Content = "Saving files...";
-            int Accuracy = await Task.Run(() => accuracy());
+            stopAccuracy = true;
+            await Task.Delay(500);
+
+            float Accuracy = await Task.Run(() => accuracy());
 
             Save.IsEnabled = true;
-            Alert.Content = "Files saved, accuracy: " + Accuracy + "%";
         }
     }
 }
