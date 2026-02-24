@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WpfApp1"
         mc:Ignorable="d"
-        Title="MainWindow" Height="600" Width="800">
+        Title="MainWindow" Height="700" Width="800">
 
     <StackPanel>
         <Border BorderBrush="Black" BorderThickness="2" Width="302" Height="305" Margin="25">
@@ -19,13 +19,15 @@
         </Border>
 
         <Label x:Name="NumGuess" Content="" HorizontalAlignment="Center"/>
-        <Label x:Name="Alert" Content="" HorizontalAlignment="Center"/>
         <Label x:Name="AccuracyAlert" Content="" HorizontalAlignment="Center"/>
+        <Label x:Name="Alert" Content="" HorizontalAlignment="Center"/>
 
         <Button x:Name="Clear" Margin="5" Click="ClearButton" Height="20" Width="100" Content="Clear"/>
         <Button x:Name="Identify" Margin="5" Click="IdentifyButton" Height="20" Width="100" Content="Identify"/>
+        <Button x:Name="AccuracyB" Margin="5" Click="AccuracyButton" Height="20" Width="100" Content="Accuracy"/>
         <Button x:Name="Train" Margin="5" Click="TrainButton" Height="20" Width="100" Content="Train"/>
         <Button x:Name="Save" Margin="5" Click="SaveButton" Height="20" Width="100" Content="Save Train Data"/>
+        <Button x:Name="Delete" Margin="5" Click="DeleteButton" Height="20" Width="100" Content="Delete Train Data"/>
         
     </StackPanel>
 </Window>

@@ -28,11 +28,11 @@ namespace WpfApp1
 
         const int epoch = 50;
 
-        const float learningRate = 0.01f;
+        float learningRate = 0.01f;
 
         const int numLayers = 5;
         float[][] layers = new float[numLayers][]; // store the fire value of each layer
-        int[] numNeurons = new int[numLayers] { (width * height), 512, 256, 128, 47 };
+        int[] numNeurons = new int[numLayers] { (width * height), 512, 256, 128, 36 };
 
         float[][][] weight = new float[numLayers][][];
         float[][] bias = new float[numLayers][];
@@ -55,18 +55,19 @@ namespace WpfApp1
 
                 for (int j = 0; j < numNeurons[i + 1]; j++)
                 {
-                    bias[i][j] = (rnd.Next(1, 100) - 50f) / 100f;
+                    bias[i][j] = (rnd.Next(1, 100) - 50f) / 1000f;
 
                     weight[i][j] = new float[numNeurons[i]];
                     for (int k = 0; k < numNeurons[i]; k++)
                     {
-                        weight[i][j][k] = (rnd.Next(1, 100) - 50f) / 100f;
+                        weight[i][j][k] = (rnd.Next(1, 100) - 50f) / 1000f;
                     }
                 }
             }
 
             loadAsync();
         }
+
         private float[][] canvasToMatrix()
         {
             // render as bitmap the canvas than covert the bitmap render to a matrix of 0 and 1 where 0 is white (neuron off) and 1 is black (neuron on)
@@ -158,7 +159,7 @@ namespace WpfApp1
                 layers[0][i] = ValArr[i];
             }
 
-            // compute first value of each neuron
+            // compute the value of each neuron
             for (int i = 0; i < numLayers - 1; i++)
             {
                 layers[i + 1] = new float[numNeurons[i + 1]];
@@ -169,10 +170,18 @@ namespace WpfApp1
                         layers[i + 1][j] += layers[i][k] * weight[i][j][k];
                     }
                     layers[i + 1][j] += bias[i][j];
-                    layers[i + 1][j] = 1f / (1f + (float)Math.Pow(Math.Exp(1), -(layers[i + 1][j]))); // sigmoide
+                    if (i == numLayers - 2)
+                    {
+                        layers[i + 1][j] = 1f / (1f + (float)Math.Pow(Math.Exp(1), -(layers[i + 1][j]))); // sigmoide
+                    }
+                    else
+                    {
+                        layers[i + 1][j] = (layers[i + 1][j] >= 0) ? layers[i + 1][j] : 0f;  // ReLU
+                    }
                 }
             }
 
+            // compute the result
             float num = -1;
             float tempOld = -1;
             float temp = 0;
@@ -204,6 +213,7 @@ namespace WpfApp1
                 else
                 {
                     outputChar = (char)(num + 55);
+                    NumGuess.Content = outputChar;
                 }
             }
 
@@ -244,7 +254,7 @@ namespace WpfApp1
                         sum += delta[i][k] * weight[i - 1][k][j];
                     }
 
-                    delta[i - 1][j] = sum * layers[i - 1][j] * (1 - layers[i - 1][j]);
+                    delta[i - 1][j] = sum * ((layers[i - 1][j] > 0) ? 1f : 0f);
                     sum = 0;
                 }
             }
@@ -270,7 +280,7 @@ namespace WpfApp1
 
         void training()
         {
-            float[] ExpVal = new float[47];
+            float[] ExpVal = new float[36];
 
             for (int i = 0; i < ExpVal.Length; i++)
             {
@@ -306,17 +316,18 @@ namespace WpfApp1
             int row = BitConverter.ToInt32(fileNumImg, 8);
             int columns = BitConverter.ToInt32(fileNumImg, 12);
             int size = row * columns;
-            float Accuracy = 0;
             float[] trainingVal = new float[size];
 
             for (int q = 0; q < epoch; q++)
             {
-                // Accuracy = accuracy();
+                (fileImg, fileLab) = shuffle(fileImg, fileLab, nImg, size);
 
-                // Application.Current.Dispatcher.Invoke(() =>
-                // {
-                //     Alert.Content = "Accuracy: " + Accuracy + "%";
-                // });
+                accuracy();
+
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    AccuracyAlert.Content += ", Epoch: " + q + "/" + epoch;
+                });
 
                 for (int f = 0; f < nImg; f++)
                 {
@@ -362,12 +373,14 @@ namespace WpfApp1
                         return;
                     }
                 }
+
+                learningRate *= 0.95f;
             }
         }
 
         float accuracy()
         {
-            stopAccuracy = false;
+            int accuracyAccyracy = 38000;
 
             Application.Current.Dispatcher.Invoke(() =>
             {
@@ -384,6 +397,10 @@ namespace WpfApp1
             byte[] fileCharImg = LittleEndianConv(File.ReadAllBytes(pathCharImg), 4);
             byte[] fileCharLab = LittleEndianConv(File.ReadAllBytes(pathCharLab), 2);
 
+            int row = BitConverter.ToInt32(fileNumImg, 8);
+            int columns = BitConverter.ToInt32(fileNumImg, 12);
+            int size = row * columns;
+
             byte[] cleanNumImg = removeMetadata(fileNumImg, 16);
             byte[] cleanNumLab = removeMetadata(fileNumLab, 8);
             byte[] cleanCharImg = removeMetadata(fileCharImg, 16);
@@ -394,19 +411,23 @@ namespace WpfApp1
                 cleanCharLab[i] += 9;
             }
 
+            Array.Resize(ref cleanNumImg, cleanNumImg.Length - (accuracyAccyracy * size));
+            Array.Resize(ref cleanNumLab, cleanNumLab.Length - (accuracyAccyracy));
+            Array.Resize(ref cleanCharImg, cleanCharImg.Length - (((accuracyAccyracy * 14800) / 40000) * size));
+            Array.Resize(ref cleanCharLab, cleanCharLab.Length - ((accuracyAccyracy * 14800) / 40000));
+
             byte[] fileImg = mergeFileContent(cleanNumImg, cleanCharImg);
             byte[] fileLab = mergeFileContent(cleanNumLab, cleanCharLab);
+
+            int nImg = fileLab.Length;
+            float[] trainingVal = new float[size];
+            float[] ExpVal = new float[36];
+
+            (fileImg, fileLab) = shuffle(fileImg, fileLab, nImg, size);
 
             float right = 0;
             float wrong = 0;
             float Accuracy = 0;
-
-            int nImg = BitConverter.ToInt32(fileNumImg, 4) + BitConverter.ToInt32(fileCharImg, 4);
-            int row = BitConverter.ToInt32(fileNumImg, 8);
-            int columns = BitConverter.ToInt32(fileNumImg, 12);
-            int size = row * columns;
-            float[] trainingVal = new float[size];
-            float[] ExpVal = new float[47];
 
             for (int i = 0; i < ExpVal.Length; i++)
             {
@@ -442,24 +463,11 @@ namespace WpfApp1
                 }
 
                 Accuracy = right * 100 / (right + wrong);
-
-                if (i % 1000 == 0)
-                {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        AccuracyAlert.Content = "Accuracy: " + Accuracy + "%";
-                    });
-                }
-
-                if (stopAccuracy)
-                {
-                    return Accuracy;
-                }
             }
 
             Application.Current.Dispatcher.Invoke(() =>
             {
-                AccuracyAlert.Content = "Loaded latest data, accuracy: " + Accuracy + "%";
+                AccuracyAlert.Content = "Accuracy: " + Accuracy + "%";
             });
 
             return Accuracy;
@@ -516,15 +524,32 @@ namespace WpfApp1
             {
                 temp[i + file1.Length] = file2[i];
             }
-
+            
             return temp;
         }
 
-        byte[] shuffle(byte[] file, int nImg, int size)
+        (byte[], byte[])  shuffle(byte[] fileImg, byte[] fileLab, int nImg, int size)
         {
-            byte[] shuffledFile = new byte[file.Length];
-            byte[] temp = new byte[size];
-            int[] rndPos = Enumerable.Range(0, nImg).OrderBy(x => rnd.Next()).ToArray();
+            byte[] shuffledImg = new byte[fileImg.Length];
+            byte[] shuffledLab = new byte[fileLab.Length];
+            byte[] tempImg = new byte[size];
+            int[] rndPos = new int[nImg];
+            int temp = 0;
+            int pos = -1;
+
+            for (int i = 0; i < nImg; i++)
+            {
+                rndPos[i] = i;
+            }
+
+            for (int i = 0; i < nImg; i++)
+            {
+                pos = rnd.Next(0, nImg);
+
+                temp = rndPos[pos];
+                rndPos[pos] = rndPos[i];
+                rndPos[i] = temp;
+            }
 
             for (int i = 0; i < nImg; i++)
             {
@@ -532,21 +557,23 @@ namespace WpfApp1
                 {
                     if (i == 0)
                     {
-                        temp[k] = file[k];
+                        tempImg[k] = fileImg[k];
                     }
                     else
                     {
-                        temp[k] = file[k + i * size];
+                        tempImg[k] = fileImg[k + i * size];
                     }
                 }
 
                 for (int k = 0; k < size; k++)
                 {
-                    shuffledFile[rndPos[i]] = temp[k];
+                    shuffledImg[rndPos[i] * size + k] = tempImg[k];
                 }
+
+                shuffledLab[rndPos[i]] = fileLab[i];
             }
 
-            return shuffledFile;
+            return (shuffledImg, shuffledLab);
         }
 
         void save()
@@ -612,19 +639,30 @@ namespace WpfApp1
                 });
 
                 await Task.Delay(100);
-
-                stopAccuracy = true;
-                await Task.Delay(500);
-
-                float Accuracy = await Task.Run(() => accuracy());
             }
             catch
             {
+                for (int i = 0; i < numLayers - 1; i++)
+                {
+                    weight[i] = new float[numNeurons[i + 1]][];
+                    bias[i] = new float[numNeurons[i + 1]];
+
+                    for (int j = 0; j < numNeurons[i + 1]; j++)
+                    {
+                        bias[i][j] = (rnd.Next(1, 100) - 50f) / 1000f;
+
+                        weight[i][j] = new float[numNeurons[i]];
+                        for (int k = 0; k < numNeurons[i]; k++)
+                        {
+                            weight[i][j][k] = (rnd.Next(1, 100) - 50f) / 1000f;
+                        }
+                    }
+                }
+
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    AccuracyAlert.Content = "Some parameter has been changed, training file reseted";
+                    Alert.Content = "Some parameter has been changed, training file reseted";
                 });
-                new BinaryWriter(File.Open(pathData, FileMode.Create));
             }
         }
 
@@ -669,31 +707,63 @@ namespace WpfApp1
         async private void TrainButton(object sender, RoutedEventArgs e)
         {
             stop = false;
+                        AccuracyB.IsEnabled = false;
             Train.IsEnabled = false;
             Alert.Content = "Training started";
             await Task.Delay(100);
             await Task.Run(() => training());
 
+            AccuracyB.IsEnabled = true;
             Train.IsEnabled = true;
             Alert.Content = "Training finished";
         }
 
         async private void SaveButton(object sender, RoutedEventArgs e)
         {
-            stop = true;
-
             Alert.Content = "Saving files...";
             await Task.Delay(100);
             Save.IsEnabled = false;
             await Task.Run(() => save());
             Alert.Content = "Files saved";
 
+            Save.IsEnabled = true;
+        }
+
+        async private void AccuracyButton(object sender, RoutedEventArgs e)
+        {
+            AccuracyB.IsEnabled = false;
+            Train.IsEnabled = false;
             stopAccuracy = true;
             await Task.Delay(500);
 
-            float Accuracy = await Task.Run(() => accuracy());
+            await Task.Run(() => accuracy());
+            AccuracyB.IsEnabled = true;
+            Train.IsEnabled = true;
+        }
 
-            Save.IsEnabled = true;
+        private void DeleteButton(object sender, RoutedEventArgs e)
+        {
+            for (int i = 0; i < numLayers - 1; i++)
+            {
+                weight[i] = new float[numNeurons[i + 1]][];
+                bias[i] = new float[numNeurons[i + 1]];
+
+                for (int j = 0; j < numNeurons[i + 1]; j++)
+                {
+                    bias[i][j] = (rnd.Next(1, 100) - 50f) / 1000f;
+
+                    weight[i][j] = new float[numNeurons[i]];
+                    for (int k = 0; k < numNeurons[i]; k++)
+                    {
+                        weight[i][j][k] = (rnd.Next(1, 100) - 50f) / 1000f;
+                    }
+                }
+            }
+
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                Alert.Content = "Training file reseted";
+            });
         }
     }
 }
